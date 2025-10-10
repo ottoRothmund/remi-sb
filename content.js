@@ -11,6 +11,13 @@
 		"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3Y2N3cnJrc3BldWdhZnNkeGtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NjI1NDYsImV4cCI6MjA3NTUzODU0Nn0.G-DycGQ8ENN9fuoQro4iq46A4-NoyPEYvLfcs-B6zc0";
 
 	const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+	const USERNAME_KEY = "shoutbox_username";
+	const LOGIN_TYPE_KEY = "shoutbox_login_type";
+
+	let presenceChannel = null;
+	let typingChannel = null;
+	let messageChannel = null;
+	let pollTimer = null;
 
 	// Helpers
 	const randomGuestName = () => {
@@ -26,6 +33,58 @@
 		for (let i = 0; i < str.length; i++)
 			hash = str.charCodeAt(i) + ((hash << 5) - hash);
 		return `hsl(${Math.abs(hash) % 360},80%,70%)`;
+	};
+	const deriveUsername = (user) => {
+		if (!user) return null;
+		const meta = user.user_metadata || {};
+		return (
+			meta.user_name ||
+			meta.preferred_username ||
+			meta.full_name ||
+			meta.name ||
+			(user.email ? user.email.split("@")[0] : null) ||
+			`user_${user.id.slice(0, 6)}`
+		);
+	};
+	const clearStoredUser = () => {
+		localStorage.removeItem(USERNAME_KEY);
+		localStorage.removeItem(LOGIN_TYPE_KEY);
+	};
+	const cleanupChannel = async (ch) => {
+		if (!ch) return;
+		try {
+			await ch.unsubscribe();
+		} catch (_) {}
+		try {
+			await supabase.removeChannel(ch);
+		} catch (_) {}
+	};
+	const cleanupChat = async () => {
+		if (pollTimer) {
+			clearInterval(pollTimer);
+			pollTimer = null;
+		}
+		await Promise.all(
+			[presenceChannel, typingChannel, messageChannel].map(cleanupChannel)
+		);
+		presenceChannel = null;
+		typingChannel = null;
+		messageChannel = null;
+	};
+	const waitForComingSoon = (cb) => {
+		const soon = document.querySelector(".coming-soon-content");
+		if (soon) {
+			cb(soon);
+			return;
+		}
+		const watcher = new MutationObserver(() => {
+			const target = document.querySelector(".coming-soon-content");
+			if (target) {
+				watcher.disconnect();
+				cb(target);
+			}
+		});
+		watcher.observe(document.body, { childList: true, subtree: true });
 	};
 	function renderMessage(messagesEl, user, text, ts, sys = false) {
 		const el = document.createElement("div");
@@ -45,7 +104,10 @@
 
 	async function injectAuthUI() {
 		const soon = document.querySelector(".coming-soon-content");
-		if (!soon) return;
+		if (!soon) {
+			waitForComingSoon(() => injectAuthUI());
+			return;
+		}
 		soon.innerHTML = `
       <div id="auth-screen">
         <h2>Remilia Shoutbox</h2>
@@ -57,13 +119,19 @@
 			supabase.auth.signInWithOAuth({ provider: "twitter" });
 		document.getElementById("guest-login").onclick = () => {
 			const u = randomGuestName();
-			localStorage.setItem("shoutbox_username", u);
+			localStorage.setItem(USERNAME_KEY, u);
+			localStorage.setItem(LOGIN_TYPE_KEY, "guest");
 			injectChat(u);
 		};
 	}
 
 	async function injectChat(username) {
 		const soon = document.querySelector(".coming-soon-content");
+		if (!soon) {
+			waitForComingSoon(() => injectChat(username));
+			return;
+		}
+		await cleanupChat();
 		soon.innerHTML = `
       <div id="shoutbox">
         <div id="shoutbox-header">
@@ -93,48 +161,58 @@
 		document
 			.getElementById("logout-btn")
 			.addEventListener("click", async () => {
-				await supabase.auth.signOut();
-				localStorage.removeItem("shoutbox_username");
-				injectAuthUI();
+				const loginType = localStorage.getItem(LOGIN_TYPE_KEY);
+				await cleanupChat();
+				if (loginType === "oauth") {
+					await supabase.auth.signOut();
+				}
+				clearStoredUser();
+				if (loginType !== "oauth") injectAuthUI();
 			});
 
 		// Presence
-		const presence = supabase.channel("presence", {
+		presenceChannel = supabase.channel("presence", {
 			config: { presence: { key: username } },
 		});
-		presence.on("presence", { event: "sync" }, () => {
-			const count = Object.keys(presence.presenceState()).length;
+		presenceChannel.on("presence", { event: "sync" }, () => {
+			const count = Object.keys(presenceChannel.presenceState()).length;
 			peerCountEl.textContent = `Online: ${count}`;
 		});
-		await presence.subscribe();
+		await presenceChannel.subscribe();
 
 		// Load + poll fallback
 		let lastMsgId = 0;
 		async function loadMessages() {
-			const { data } = await supabase
+			const { data, error } = await supabase
 				.from("messages")
 				.select("id,username,text,created_at")
-				.order("created_at", { ascending: true })
+				.order("created_at", { ascending: false })
 				.limit(200);
-			if (!data) return;
+			if (error || !data) return;
 			messagesEl.innerHTML = "";
-			data.forEach((m) =>
+			const ordered = [...data].reverse();
+			ordered.forEach((m) =>
 				renderMessage(messagesEl, m.username, m.text, m.created_at)
 			);
-			lastMsgId = data.at(-1)?.id || 0;
+			const newest = ordered.at(-1);
+			if (newest) {
+				lastMsgId = Math.max(lastMsgId, newest.id);
+			}
 		}
 		await loadMessages();
-		setInterval(loadMessages, 5000); // fallback poll
+		pollTimer = setInterval(loadMessages, 5000); // fallback poll
 
 		// Realtime with reconnect
-		function connectRealtime() {
-			const ch = supabase
-				.channel("public:messages")
+		async function connectRealtime() {
+			await cleanupChannel(messageChannel);
+			messageChannel = supabase.channel("public:messages");
+			messageChannel
 				.on(
 					"postgres_changes",
 					{ event: "INSERT", schema: "public", table: "messages" },
 					(payload) => {
 						const m = payload.new;
+						if (lastMsgId && m.id <= lastMsgId) return;
 						renderMessage(messagesEl, m.username, m.text, m.created_at);
 						lastMsgId = m.id;
 					}
@@ -148,8 +226,8 @@
 		connectRealtime();
 
 		// Typing indicator
-		const typing = supabase.channel("typing");
-		typing
+		typingChannel = supabase.channel("typing");
+		typingChannel
 			.on("broadcast", { event: "typing" }, (p) => {
 				if (p.username === username) return;
 				typingEl.style.display = "block";
@@ -158,15 +236,16 @@
 					() => (typingEl.style.display = "none"),
 					1500
 				);
-			})
-			.subscribe();
-		inputEl.addEventListener("input", () =>
-			typing.send({
+			});
+		typingChannel.subscribe();
+		inputEl.addEventListener("input", () => {
+			if (!typingChannel) return;
+			typingChannel.send({
 				type: "broadcast",
 				event: "typing",
 				payload: { username },
-			})
-		);
+			});
+		});
 
 		async function sendMessage() {
 			const t = inputEl.value.trim();
@@ -187,10 +266,52 @@
 		const soon = document.querySelector(".coming-soon-content");
 		if (active && soon) {
 			observer.disconnect();
-			const stored = localStorage.getItem("shoutbox_username");
-			if (stored) injectChat(stored);
-			else injectAuthUI();
+			const storedType = localStorage.getItem(LOGIN_TYPE_KEY);
+			const stored = localStorage.getItem(USERNAME_KEY);
+			if (stored && storedType === "guest") {
+				injectChat(stored);
+				return;
+			}
+			const { data } = await supabase.auth.getSession();
+			const user = data?.session?.user;
+			if (user) {
+				const oauthName = deriveUsername(user);
+				if (oauthName) {
+					localStorage.setItem(USERNAME_KEY, oauthName);
+					localStorage.setItem(LOGIN_TYPE_KEY, "oauth");
+					injectChat(oauthName);
+					return;
+				}
+			}
+			clearStoredUser();
+			injectAuthUI();
 		}
 	});
 	observer.observe(document.body, { childList: true, subtree: true });
+
+	supabase.auth.onAuthStateChange(async (event, session) => {
+		if (event === "SIGNED_IN") {
+			const user = session?.user;
+			const name = deriveUsername(user);
+			if (!name) return;
+			localStorage.setItem(USERNAME_KEY, name);
+			localStorage.setItem(LOGIN_TYPE_KEY, "oauth");
+			await injectChat(name);
+		} else if (event === "SIGNED_OUT") {
+			if (localStorage.getItem(LOGIN_TYPE_KEY) === "oauth") {
+				clearStoredUser();
+				await cleanupChat();
+				injectAuthUI();
+			}
+		} else if (event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
+			const user = session?.user;
+			const name = deriveUsername(user);
+			if (name) {
+				localStorage.setItem(USERNAME_KEY, name);
+				if (localStorage.getItem(LOGIN_TYPE_KEY) !== "guest") {
+					localStorage.setItem(LOGIN_TYPE_KEY, "oauth");
+				}
+			}
+		}
+	});
 })();
