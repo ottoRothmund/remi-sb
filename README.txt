@@ -24,23 +24,27 @@ Remilia Shoutbox replaces the inactive "Pictochat" tab on https://remilia.com wi
 ### 4. Use the extension
 
 - Go to your Remilia profile (for example: https://remilia.com/~otto).
-- Click the "Pictochat" tab.
-- The shoutbox will appear automatically.
+- Click the "Pictochat" tab and the shoutbox will load automatically.
+- Or click the browser toolbar icon on any site to open the shoutbox popup and chat on the go.
 
 ## Folder structure
 
 remilia-shoutbox/
 ├── manifest.json
 ├── content.js
+├── shoutboxCore.js
+├── popup.html
+├── popup.js
+├── popup.css
 ├── style.css
-├── supabase.js
+├── supabase.min.js
 └── icons/
-├── icon16.png
-├── icon48.png
-└── icon128.png
+    ├── icon16.png
+    ├── icon48.png
+    └── icon128.png
 
 ## Notes
 
-- The extension only runs on https://remilia.com/*
+- The Pictochat replacement still runs on https://remilia.com/*, and the popup works anywhere.
 - It connects to a public Supabase backend for real-time chat.
 - No personal or browsing data is collected.

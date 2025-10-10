@@ -1,43 +1,30 @@
 {
-  "manifest_version": 3,
-  "name": "Remilia Shoutbox (Pictochat Replacer)",
-  "version": "1.3.0",
-  "description": "Replaces the Pictochat tab on remilia.com with a Supabase-powered shoutbox. Supports X login or guest mode, logout, and auto-prunes messages to 200.",
-  "permissions": [
-    "activeTab",
-    "storage",
-    "scripting"
-  ],
-  "host_permissions": [
-    "https://remilia.com/*",
-    "https://*.supabase.co/*"
-  ],
-  "content_scripts": [
-    {
-      "matches": [
-        "https://remilia.com/*"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "css": [
-        "style.css"
-      ]
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "supabase.min.js"
-      ],
-      "matches": [
-        "<all_urls>"
-      ]
-    }
-  ],
-  "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  }
+	"manifest_version": 3,
+	"name": "Remilia Shoutbox (Pictochat Replacer)",
+	"version": "1.4.0",
+	"description": "Supabase-powered shoutbox for remilia.com with guest or X login, now accessible anywhere via the extension popup.",
+	"action": {
+		"default_title": "Remilia Shoutbox",
+		"default_popup": "popup.html"
+	},
+	"permissions": ["activeTab", "storage", "scripting"],
+	"host_permissions": ["https://remilia.com/*", "https://*.supabase.co/*"],
+	"content_scripts": [
+		{
+			"matches": ["https://remilia.com/*"],
+			"js": ["content.js"],
+			"css": ["style.css"]
+		}
+	],
+	"web_accessible_resources": [
+		{
+			"resources": ["supabase.min.js", "shoutboxCore.js"],
+			"matches": ["<all_urls>"]
+		}
+	],
+	"icons": {
+		"16": "icons/icon16.png",
+		"48": "icons/icon48.png",
+		"128": "icons/icon128.png"
+	}
 }

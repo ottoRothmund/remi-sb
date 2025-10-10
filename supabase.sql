@@ -31,4 +31,4 @@ begin
     select id from public.messages order by created_at desc limit keep_count
   );
 end;
-$$ language plpgsql;
+$$ language plsql;
