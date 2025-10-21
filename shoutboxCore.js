@@ -274,7 +274,7 @@ class ShoutboxInstance {
 			this.supabaseFailed = true;
 			console.error("Remilia shoutbox Supabase unavailable", error);
 			await this.showFatalError(
-				"Chat backend unavailable. Reload the page or extension popup."
+				"Chat backend unavailable. Reload the page to try again."
 			);
 			return null;
 		}
@@ -351,8 +351,8 @@ class ShoutboxInstance {
       <div id="auth-screen">
         <h2>Remilia Shoutbox</h2>
         <div class="auth-buttons">
-          <button id="signin-twitter">Sign in with X</button>
-          <button id="guest-login">Continue as Guest</button>
+          <button id="signin-twitter" class="auth-button auth-button--twitter" type="button">Sign in with X</button>
+          <button id="guest-login" class="auth-button auth-button--guest" type="button">Continue as Guest</button>
         </div>
         <p class="auth-note">Sign in with X to post as your handle or continue as a guest.</p>
       </div>

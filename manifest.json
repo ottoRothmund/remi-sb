@@ -2,10 +2,9 @@
 	"manifest_version": 3,
 	"name": "Remilia Shoutbox (Pictochat Replacer)",
 	"version": "1.4.0",
-	"description": "Supabase-powered shoutbox for remilia.com with guest or X login, now accessible anywhere via the extension popup.",
+	"description": "Supabase-powered shoutbox for remilia.com with guest or X login.",
 	"action": {
-		"default_title": "Remilia Shoutbox",
-		"default_popup": "popup.html"
+		"default_title": "Remilia Shoutbox"
 	},
 	"permissions": ["activeTab", "storage", "scripting"],
 	"host_permissions": ["https://remilia.com/*", "https://*.supabase.co/*"],

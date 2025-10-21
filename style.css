@@ -116,17 +116,69 @@
 
 .auth-buttons {
 	display: flex;
-	gap: 10px;
-	margin: 8px 0;
+	gap: 12px;
+	margin: 12px 0;
+	flex-wrap: wrap;
+	justify-content: center;
+	width: 100%;
 }
 
-#auth-screen button {
+.auth-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	padding: 10px 18px;
+	border-radius: 999px;
+	border: 2px solid transparent;
 	background: var(--pink);
 	color: white;
-	border: none;
-	border-radius: 8px;
-	padding: 8px 12px;
+	font-weight: 600;
+	font-size: 14px;
+	letter-spacing: 0.2px;
 	cursor: pointer;
+	box-shadow: 0 6px 16px rgba(255, 94, 183, 0.35);
+	transition: transform 0.15s ease, box-shadow 0.15s ease,
+		background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.auth-button:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 10px 22px rgba(255, 94, 183, 0.4);
+}
+
+.auth-button:active {
+	transform: translateY(0);
+	box-shadow: 0 4px 12px rgba(255, 94, 183, 0.3);
+}
+
+.auth-button:focus-visible {
+	outline: none;
+	border-color: rgba(34, 34, 34, 0.2);
+	box-shadow: 0 0 0 3px rgba(255, 94, 183, 0.35);
+}
+
+.auth-button--twitter {
+	background: linear-gradient(135deg, #1d9bf0, #1177bb);
+	box-shadow: 0 6px 16px rgba(17, 119, 187, 0.35);
+}
+
+.auth-button--twitter:hover {
+	background: linear-gradient(135deg, #27a5fa, #1381c8);
+	box-shadow: 0 10px 22px rgba(17, 119, 187, 0.45);
+}
+
+.auth-button--guest {
+	background: white;
+	color: var(--pink);
+	border-color: var(--pink);
+	box-shadow: 0 6px 16px rgba(255, 94, 183, 0.18);
+}
+
+.auth-button--guest:hover {
+	background: rgba(255, 94, 183, 0.12);
+	color: #c82673;
+}
 }
 
 .auth-note {
